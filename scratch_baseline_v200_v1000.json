@@ -1,0 +1,14 @@
+{
+  "200": {
+    "cost": 186374.76641179033,
+    "time_s": 374.21677459999955,
+    "feasible": true,
+    "summary": "feasible"
+  },
+  "1000": {
+    "cost": 6757485.999742549,
+    "time_s": 479.98342890000094,
+    "feasible": true,
+    "summary": "feasible"
+  }
+}

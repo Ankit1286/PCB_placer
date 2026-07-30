@@ -1,0 +1,12 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "placer"
+version = "0.1.0"
+description = "Quilter PCB placement take-home: board generator, baseline placer, and learned placer."
+requires-python = ">=3.10"
+
+[tool.setuptools]
+packages = ["placer", "placer.learned"]

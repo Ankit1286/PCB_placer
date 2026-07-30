@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+mlruns/
+mlartifacts/
+mlflow.db
+*.egg-info/
+.pytest_cache/
+placer/checkpoints/*.pt
+!placer/checkpoints/.gitkeep
+!placer/checkpoints/placement_gnn_best.pt
