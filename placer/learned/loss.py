@@ -76,6 +76,19 @@ _DEGREE_CORRECTION_TABLE = torch.tensor(
     dtype=torch.float32,
 )  # index 0/1 unused (nets have >=2 pins per spec) but kept so `degree` can index directly.
 
+_degree_table_cache: dict[torch.device, torch.Tensor] = {}
+
+
+def _degree_correction_table_on(device: torch.device) -> torch.Tensor:
+    """Cached per-device copy -- `.to(device)` on every call (the per-board optimizer calls
+    `smoothed_hpwl` every single step) re-transfers this tiny table to the GPU every step instead of
+    once. Found via the same Colab check as the normalizer sync fix: GPU memory allocated, ~0%
+    utilization, no speedup over CPU -- repeated small transfers add real per-step overhead even
+    though no individual one is expensive."""
+    if device not in _degree_table_cache:
+        _degree_table_cache[device] = _DEGREE_CORRECTION_TABLE.to(device)
+    return _degree_table_cache[device]
+
 DEFAULT_GRID_SIZE = 32
 DEFAULT_CONGESTION_FREE_CAPACITY = 3.0  # a "fair share" cell would hold ~2*|V|/32^2 nets' worth of mass at |V|=1000
 
@@ -137,7 +150,7 @@ def smoothed_hpwl(
     span_y = _wa_max(ys, edge_net_idx, num_nets, gamma) - _wa_min(ys, edge_net_idx, num_nets, gamma)
 
     degree = torch.bincount(edge_net_idx, minlength=num_nets).clamp(min=_MIN_DEGREE, max=_MAX_DEGREE)
-    correction = _DEGREE_CORRECTION_TABLE.to(positions.device)[degree]
+    correction = _degree_correction_table_on(positions.device)[degree]
 
     return (net_weights * correction * (span_x + span_y)).mean()
 
