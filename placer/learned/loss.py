@@ -283,6 +283,22 @@ class ProxyLossNormalizer:
         scale = self._scale(name, term.item())
         return term / scale
 
+    def normalize_all(self, terms: dict[str, torch.Tensor]) -> torch.Tensor:
+        """Normalize several terms with a single CPU/GPU sync instead of one `.item()` call per term.
+
+        On CUDA, `.item()` forces a synchronization point (GPU must finish and hand a value back to
+        the CPU before continuing) -- calling it once per term serializes what should be independent,
+        fast GPU work behind several round-trips instead of one. Found on Colab: GPU memory was
+        allocated (tensors genuinely on-device) but utilization read ~0%, with wall-clock no faster
+        than CPU -- the signature of a workload spending most of its time synchronized-and-waiting
+        rather than computing. Stacking all terms into one tensor and syncing once fixes this while
+        leaving CPU behavior unchanged (harmless there, since there's no sync cost to begin with).
+        """
+        names = list(terms.keys())
+        values = torch.stack([terms[n].detach() for n in names]).cpu().tolist()
+        scales = [self._scale(n, v) for n, v in zip(names, values)]
+        return sum(terms[n] / s for n, s in zip(names, scales))
+
     def state_dict(self) -> dict:
         return {
             "decay": self.decay,
@@ -319,8 +335,4 @@ def proxy_cost(
     wirelength = smoothed_hpwl(positions, edge_comp_idx, edge_net_idx, net_weights, num_nets, gamma)
     overlap = soft_overlap(positions, widths, heights)
     congestion = soft_congestion(positions, edge_comp_idx, edge_net_idx, num_nets, board_width, board_height, gamma)
-    return (
-        normalizer.normalize("wirelength", wirelength)
-        + normalizer.normalize("overlap", overlap)
-        + normalizer.normalize("congestion", congestion)
-    )
+    return normalizer.normalize_all({"wirelength": wirelength, "overlap": overlap, "congestion": congestion})
